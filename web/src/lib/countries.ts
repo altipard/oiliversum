@@ -1,0 +1,112 @@
+/** ISO 3166-1 numeric (world-atlas feature id) -> alpha-2, EU members and neighbours shown on the map. */
+const NUMERIC_TO_ALPHA2: Record<number, string> = {
+  8: 'AL',
+  20: 'AD',
+  40: 'AT',
+  56: 'BE',
+  70: 'BA',
+  100: 'BG',
+  112: 'BY',
+  191: 'HR',
+  196: 'CY',
+  203: 'CZ',
+  208: 'DK',
+  233: 'EE',
+  246: 'FI',
+  250: 'FR',
+  276: 'DE',
+  300: 'GR',
+  348: 'HU',
+  352: 'IS',
+  372: 'IE',
+  380: 'IT',
+  428: 'LV',
+  438: 'LI',
+  440: 'LT',
+  442: 'LU',
+  470: 'MT',
+  492: 'MC',
+  498: 'MD',
+  499: 'ME',
+  528: 'NL',
+  578: 'NO',
+  616: 'PL',
+  620: 'PT',
+  642: 'RO',
+  643: 'RU',
+  674: 'SM',
+  688: 'RS',
+  703: 'SK',
+  705: 'SI',
+  724: 'ES',
+  752: 'SE',
+  756: 'CH',
+  792: 'TR',
+  804: 'UA',
+  807: 'MK',
+  826: 'GB',
+};
+
+/** Maps a world-atlas id ("276", "040", 40) to ISO alpha-2, or null if unknown. */
+export function alpha2FromNumeric(id: string | number | null | undefined): string | null {
+  if (id == null || id === '') return null;
+  const n = typeof id === 'number' ? id : Number.parseInt(id, 10);
+  return Number.isFinite(n) ? (NUMERIC_TO_ALPHA2[n] ?? null) : null;
+}
+
+const NAMES_DE: Record<string, string> = {
+  AD: 'Andorra',
+  AL: 'Albanien',
+  AT: 'Österreich',
+  BA: 'Bosnien und Herzegowina',
+  BE: 'Belgien',
+  BG: 'Bulgarien',
+  BY: 'Belarus',
+  CH: 'Schweiz',
+  CY: 'Zypern',
+  CZ: 'Tschechien',
+  DE: 'Deutschland',
+  DK: 'Dänemark',
+  EE: 'Estland',
+  ES: 'Spanien',
+  EU: 'EU-Durchschnitt',
+  FI: 'Finnland',
+  FR: 'Frankreich',
+  GB: 'Vereinigtes Königreich',
+  GR: 'Griechenland',
+  HR: 'Kroatien',
+  HU: 'Ungarn',
+  IE: 'Irland',
+  IS: 'Island',
+  IT: 'Italien',
+  LI: 'Liechtenstein',
+  LT: 'Litauen',
+  LU: 'Luxemburg',
+  LV: 'Lettland',
+  MC: 'Monaco',
+  MD: 'Moldau',
+  ME: 'Montenegro',
+  MK: 'Nordmazedonien',
+  MT: 'Malta',
+  NL: 'Niederlande',
+  NO: 'Norwegen',
+  PL: 'Polen',
+  PT: 'Portugal',
+  RO: 'Rumänien',
+  RS: 'Serbien',
+  RU: 'Russland',
+  SE: 'Schweden',
+  SI: 'Slowenien',
+  SK: 'Slowakei',
+  SM: 'San Marino',
+  TR: 'Türkei',
+  UA: 'Ukraine',
+};
+
+/** German country name; falls back to the code itself. */
+export function countryNameDe(code: string): string {
+  return NAMES_DE[code] ?? code;
+}
+
+/** Pseudo country code of the EU average in the bulletin; not a map region. */
+export const EU_AVERAGE = 'EU';
