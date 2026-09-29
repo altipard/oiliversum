@@ -1,7 +1,7 @@
 [project]
 name = "ingest"
 version = "0.1.0"
-description = "Add your description here"
+description = "Import von Rohoel-, FX-, Spritpreis- und News-Daten nach Supabase"
 authors = [
     { name = "daltiparmak", email = "162328886+daltiparmak@users.noreply.github.com" }
 ]
@@ -23,8 +23,8 @@ llm = ["anthropic"]
 [project.scripts]
 ingest = "ingest:main"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest",
     "respx",
     "ruff",
