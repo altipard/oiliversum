@@ -2,7 +2,6 @@
 name = "ingest"
 version = "0.1.0"
 description = "Add your description here"
-readme = "README.md"
 authors = [
     { name = "daltiparmak", email = "162328886+daltiparmak@users.noreply.github.com" }
 ]
@@ -31,6 +30,9 @@ dev-dependencies = [
     "ruff",
 ]
 
+[tool.setuptools]
+packages = ["ingest"]
+
 [build-system]
-requires = ["uv_build>=0.8.4,<0.9.0"]
-build-backend = "uv_build"
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
