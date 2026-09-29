@@ -8,6 +8,14 @@ from dotenv import load_dotenv
 BACKFILL_START = date(2015, 1, 1)
 OVERLAP_DAYS = 10
 
+BULLETIN_PAGE_URL = "https://energy.ec.europa.eu/data-and-analysis/weekly-oil-bulletin_en"
+BULLETIN_FALLBACK_URL = (
+    "https://energy.ec.europa.eu/document/download/"
+    "906e60ca-8b6a-44e7-8589-652854d2fd3f_en"
+    "?filename=Weekly_Oil_Bulletin_Prices_History_maticni_4web.xlsx"
+)
+BULLETIN_OVERLAP_WEEKS = 8
+
 
 class ConfigError(RuntimeError):
     pass
