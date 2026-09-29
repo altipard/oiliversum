@@ -1,4 +1,4 @@
-"""Taegliche Jobs: Rohoel und EUR/USD."""
+"""Taegliche Jobs: Rohoel, EUR/USD und EU Oil Bulletin."""
 
 import logging
 from collections.abc import Callable
@@ -9,6 +9,13 @@ import httpx
 from ingest import db
 from ingest.config import BACKFILL_START, OVERLAP_DAYS
 from ingest.runs import Run, track_run
+from ingest.sources.bulletin import (
+    BulletinFormatError,
+    bulletin_start,
+    fetch_history,
+    latest_week,
+    parse_bulletin,
+)
 from ingest.sources.crude import make_crude_source
 from ingest.sources.fx import FrankfurterEcb
 
@@ -46,7 +53,22 @@ def fx_job(client, run: Run) -> None:
             run.rows_written += db.upsert(client, "fx_rates", rows, "pair,date")
 
 
-JOBS: dict[str, Callable[..., None]] = {"crude": crude_job, "fx": fx_job}
+def bulletin_job(client, run: Run) -> None:
+    start = bulletin_start(latest_week(client))
+    with httpx.Client(headers={"User-Agent": "oiliversum-ingest"}) as http:
+        rows = parse_bulletin(fetch_history(http), start)
+    if not rows and start == BACKFILL_START:
+        raise BulletinFormatError("backfill produced no rows")
+    run.rows_written += db.upsert(
+        client, "fuel_prices", rows, "country_code,fuel_type,week_date"
+    )
+
+
+JOBS: dict[str, Callable[..., None]] = {
+    "crude": crude_job,
+    "fx": fx_job,
+    "bulletin": bulletin_job,
+}
 
 
 def run_daily(client, only: list[str] | None = None) -> list[str]:
