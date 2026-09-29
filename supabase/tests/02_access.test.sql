@@ -18,12 +18,12 @@ select is(
     'no write policies'
 );
 
--- fixture rows, one per table
-insert into public.crude_prices (date, benchmark, price_usd_bbl, source) values ('2026-09-28', 'brent', 70.1234, 'fred');
-insert into public.fx_rates (date, pair, rate) values ('2026-09-28', 'EURUSD', 1.123456);
-insert into public.fuel_prices (week_date, country_code, fuel_type, eur_1000l_with_tax) values ('2026-09-28', 'DE', 'euro95', 1750.00);
+-- fixture rows, one per table; year 2099 and country ZZ never occur in imported data
+insert into public.crude_prices (date, benchmark, price_usd_bbl, source) values ('2099-01-01', 'brent', 70.1234, 'fred');
+insert into public.fx_rates (date, pair, rate) values ('2099-01-01', 'EURUSD', 1.123456);
+insert into public.fuel_prices (week_date, country_code, fuel_type, eur_1000l_with_tax) values ('2099-01-01', 'DE', 'euro95', 1750.00);
 insert into public.news_items (source, title, url) values ('test', 'title', 'https://example.org/a');
-insert into public.country_stats (country_code, fuel_type, lag_weeks, asymmetry) values ('DE', 'diesel', 2, 0.5);
+insert into public.country_stats (country_code, fuel_type, lag_weeks, asymmetry) values ('ZZ', 'diesel', 2, 0.5);
 insert into public.ingest_runs (job, status) values ('test', 'running');
 
 -- anon reads
