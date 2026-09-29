@@ -1,10 +1,11 @@
-"""Taegliche Jobs: Rohoel, EUR/USD und EU Oil Bulletin."""
+"""Taegliche Jobs: Rohoel, EUR/USD, EU Oil Bulletin und Weitergabe-Statistik."""
 
 import logging
 from collections.abc import Callable
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+import pandas as pd
 
 from ingest import db
 from ingest.config import BACKFILL_START, OVERLAP_DAYS
@@ -18,11 +19,20 @@ from ingest.sources.bulletin import (
 )
 from ingest.sources.crude import make_crude_source
 from ingest.sources.fx import FrankfurterEcb
+from ingest.stats import country_stats
 
 log = logging.getLogger("ingest")
 
 BENCHMARKS = ("brent", "wti")
 FX_PAIRS = ("EURUSD",)
+PAGE_SIZE = 1000
+BREAKDOWN_COLUMNS = [
+    "week_date",
+    "country_code",
+    "fuel_type",
+    "eur_1000l_without_tax",
+    "crude_eur_1000l",
+]
 
 
 def incremental_start(last: date | None) -> date:
@@ -64,10 +74,42 @@ def bulletin_job(client, run: Run) -> None:
     )
 
 
+def fetch_breakdown(client) -> pd.DataFrame:
+    """fuel_price_breakdown ab BACKFILL_START, seitenweise (PostgREST max. PAGE_SIZE)."""
+    rows: list[dict] = []
+    while True:
+        page = (
+            client.table("fuel_price_breakdown")
+            .select(",".join(BREAKDOWN_COLUMNS))
+            .gte("week_date", BACKFILL_START.isoformat())
+            .order("country_code")
+            .order("fuel_type")
+            .order("week_date")
+            .range(len(rows), len(rows) + PAGE_SIZE - 1)
+            .execute()
+            .data
+        )
+        rows += page
+        if len(page) < PAGE_SIZE:
+            return pd.DataFrame(rows, columns=BREAKDOWN_COLUMNS)
+
+
+def stats_job(client, run: Run) -> None:
+    computed_at = datetime.now(UTC).isoformat()
+    rows = [
+        {**row, "computed_at": computed_at}
+        for row in country_stats(fetch_breakdown(client))
+    ]
+    run.rows_written += db.upsert(
+        client, "country_stats", rows, "country_code,fuel_type"
+    )
+
+
 JOBS: dict[str, Callable[..., None]] = {
     "crude": crude_job,
     "fx": fx_job,
     "bulletin": bulletin_job,
+    "stats": stats_job,
 }
 
 
