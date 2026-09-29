@@ -5,3 +5,6 @@ node_modules/
 .venv/
 dist/
 supabase/.temp/
+*.egg-info/
+__pycache__/
+.pytest_cache/
