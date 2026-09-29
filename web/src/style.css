@@ -14,8 +14,12 @@
   --error-bg: #fdecea;
   --error-text: #8a1c12;
   --map-empty: #d9dde3;
-  --map-low: #e6f0fb;
-  --map-high: #0b3d91;
+  /* price scale like a temperature map: cheap -> expensive */
+  --map-1: #2e9e4f;
+  --map-2: #e9cf2c;
+  --map-3: #f08c24;
+  --map-4: #d7301f;
+  --map-5: #7b2190;
   --series-1: #1f5fbf;
   --series-2: #c2410c;
   --series-3: #7c3aed;
@@ -39,9 +43,12 @@
     --neutral: #9ca3af;
     --error-bg: #3b1714;
     --error-text: #fca5a5;
-    --map-empty: #2b3039;
-    --map-low: #1c2a3f;
-    --map-high: #8fbaf5;
+    --map-empty: #3a404b;
+    --map-1: #45b866;
+    --map-2: #f0d84a;
+    --map-3: #ff9a3c;
+    --map-4: #ef4b3a;
+    --map-5: #b05fd6;
     --series-1: #6ea3f0;
     --series-2: #fb923c;
     --series-3: #b794f6;

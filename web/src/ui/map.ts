@@ -81,10 +81,12 @@ export class MapView {
           orient: 'horizontal',
           left: 'center',
           bottom: 0,
-          itemHeight: 160,
-          text: [formatEurLiter(max), formatEurLiter(min)],
+          itemHeight: 180,
+          itemWidth: 12,
+          text: [`teuer ${formatEurLiter(max)}`, `${formatEurLiter(min)} günstig`],
           textStyle: { color: theme.text },
-          inRange: { color: [theme.mapLow, theme.mapHigh] },
+          // green -> yellow -> orange -> red -> purple, like a temperature map
+          inRange: { color: theme.mapScale },
         },
         series: [
           {

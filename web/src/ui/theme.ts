@@ -9,8 +9,8 @@ export interface ChartTheme {
   down: string;
   neutral: string;
   mapEmpty: string;
-  mapLow: string;
-  mapHigh: string;
+  /** Colour stops of the price scale, cheapest first: green, yellow, orange, red, purple. */
+  mapScale: string[];
   series: string[];
   font: string;
 }
@@ -30,8 +30,7 @@ export function readTheme(): ChartTheme {
     down: v('--down'),
     neutral: v('--neutral'),
     mapEmpty: v('--map-empty'),
-    mapLow: v('--map-low'),
-    mapHigh: v('--map-high'),
+    mapScale: [v('--map-1'), v('--map-2'), v('--map-3'), v('--map-4'), v('--map-5')],
     series: [v('--series-1'), v('--series-2'), v('--series-3'), v('--series-4')],
     font: v('--font'),
   };
