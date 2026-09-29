@@ -113,10 +113,11 @@ def test_failing_job_does_not_stop_others_and_is_reported(monkeypatch):
 
     monkeypatch.setitem(daily.JOBS, "crude", boom)
     monkeypatch.setitem(daily.JOBS, "fx", ok)
+    monkeypatch.setitem(daily.JOBS, "bulletin", lambda _client, _run: None)
     assert daily.run_daily(client) == ["crude"]
     assert ran == ["fx"]
     statuses = [u["status"] for u in updates(client)]
-    assert statuses == ["failed", "success"]
+    assert statuses == ["failed", "success", "success"]
 
 
 def test_unknown_job_rejected():
