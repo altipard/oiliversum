@@ -136,9 +136,9 @@ create policy "public read" on public.news_items for select to anon, authenticat
 create policy "public read" on public.country_stats for select to anon, authenticated using (true);
 create policy "public read" on public.ingest_runs for select to anon, authenticated using (true);
 
--- Supabase grants all privileges to anon/authenticated by default; drop write
--- privileges so a misconfigured policy cannot open writes.
-revoke insert, update, delete, truncate
+-- Supabase grants all privileges to anon/authenticated by default; reduce them
+-- to SELECT so a misconfigured policy cannot open writes.
+revoke all
     on public.crude_prices,
        public.fx_rates,
        public.fuel_prices,
@@ -146,6 +146,15 @@ revoke insert, update, delete, truncate
        public.country_stats,
        public.ingest_runs
     from anon, authenticated;
+
+grant select
+    on public.crude_prices,
+       public.fx_rates,
+       public.fuel_prices,
+       public.news_items,
+       public.country_stats,
+       public.ingest_runs
+    to anon, authenticated;
 
 revoke usage, update
     on sequence public.news_items_id_seq,

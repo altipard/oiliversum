@@ -1,5 +1,5 @@
 begin;
-select plan(51);
+select plan(63);
 
 -- RLS enabled everywhere
 select ok((select relrowsecurity from pg_class where oid = 'public.crude_prices'::regclass), 'rls on crude_prices');
@@ -79,6 +79,20 @@ select ok(not has_table_privilege('authenticated', 'public.fuel_prices', 'INSERT
 select ok(not has_table_privilege('authenticated', 'public.news_items', 'INSERT, UPDATE, DELETE, TRUNCATE'), 'authenticated cannot write news_items');
 select ok(not has_table_privilege('authenticated', 'public.country_stats', 'INSERT, UPDATE, DELETE, TRUNCATE'), 'authenticated cannot write country_stats');
 select ok(not has_table_privilege('authenticated', 'public.ingest_runs', 'INSERT, UPDATE, DELETE, TRUNCATE'), 'authenticated cannot write ingest_runs');
+
+-- anon/authenticated hold nothing but SELECT
+select table_privs_are('public', 'crude_prices', 'anon', array['SELECT']);
+select table_privs_are('public', 'fx_rates', 'anon', array['SELECT']);
+select table_privs_are('public', 'fuel_prices', 'anon', array['SELECT']);
+select table_privs_are('public', 'news_items', 'anon', array['SELECT']);
+select table_privs_are('public', 'country_stats', 'anon', array['SELECT']);
+select table_privs_are('public', 'ingest_runs', 'anon', array['SELECT']);
+select table_privs_are('public', 'crude_prices', 'authenticated', array['SELECT']);
+select table_privs_are('public', 'fx_rates', 'authenticated', array['SELECT']);
+select table_privs_are('public', 'fuel_prices', 'authenticated', array['SELECT']);
+select table_privs_are('public', 'news_items', 'authenticated', array['SELECT']);
+select table_privs_are('public', 'country_stats', 'authenticated', array['SELECT']);
+select table_privs_are('public', 'ingest_runs', 'authenticated', array['SELECT']);
 
 -- service_role keeps full rights
 select table_privs_are('public', 'crude_prices', 'service_role', array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER']);
