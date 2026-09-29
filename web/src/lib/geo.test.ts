@@ -49,6 +49,34 @@ describe('cropToEurope', () => {
     expect(ru.geometry.coordinates).toHaveLength(1);
   });
 
+  it('drops rings crossing the antimeridian whose box centre falls into Europe', () => {
+    const wide: Ring[] = [
+      [
+        [-180, 41],
+        [179.9, 41],
+        [179.9, 77.7],
+        [-180, 77.7],
+        [-180, 41],
+      ],
+    ];
+    const res = cropToEurope({
+      type: 'FeatureCollection',
+      features: [
+        {
+          // Russia as in world-atlas: mainland spans -180..180, plus Kaliningrad
+          type: 'Feature',
+          id: '643',
+          properties: {},
+          geometry: { type: 'MultiPolygon', coordinates: [wide, square(20, 54.5)] },
+        },
+        // a feature consisting only of such a ring disappears
+        { type: 'Feature', id: '999', properties: {}, geometry: { type: 'Polygon', coordinates: wide } },
+      ],
+    });
+    expect(res.features).toHaveLength(1);
+    expect(res.features[0]!.geometry.coordinates).toEqual([square(20, 54.5)]);
+  });
+
   it('names features by alpha-2, keeps unknown European ones under a placeholder and drops the rest', () => {
     expect(cropped.features.map((f) => f.properties.name)).toEqual(['FR', 'GR', 'RU', '_4']);
     expect(cropped.features[3]!.properties.code).toBeNull();

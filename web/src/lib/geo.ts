@@ -40,7 +40,9 @@ export interface MapCollection {
 /** [west, south, east, north]; drops overseas territories, Svalbard, Canaries, Azores, Asian Russia. */
 export const EUROPE_BOX = [-25, 34.5, 36, 72] as const;
 
-function polygonCenter(polygon: Ring[]): [number, number] | null {
+type Bounds = [west: number, south: number, east: number, north: number];
+
+function polygonBounds(polygon: Ring[]): Bounds | null {
   const outer = polygon[0];
   if (!outer || outer.length === 0) return null;
   let minX = Infinity;
@@ -55,16 +57,25 @@ function polygonCenter(polygon: Ring[]): [number, number] | null {
     if (y < minY) minY = y;
     if (y > maxY) maxY = y;
   }
-  return [(minX + maxX) / 2, (minY + maxY) / 2];
-}
-
-function insideBox([x, y]: [number, number], box: readonly [number, number, number, number]): boolean {
-  return x >= box[0] && x <= box[2] && y >= box[1] && y <= box[3];
+  return [minX, minY, maxX, maxY];
 }
 
 /**
- * Keeps only polygons whose bounding-box centre lies in `box`, so France loses
- * French Guiana but keeps Corsica. Features are named by ISO alpha-2 where known.
+ * A polygon belongs to the window if its bounding-box centre lies inside and it
+ * is not wider than the window. The width check drops rings that run across the
+ * antimeridian (Russian mainland, Wrangel Island: -180..180): their centre falls
+ * near 0° E and would otherwise be drawn as a band across the whole map.
+ */
+function belongsToBox(b: Bounds, box: readonly [number, number, number, number]): boolean {
+  const cx = (b[0] + b[2]) / 2;
+  const cy = (b[1] + b[3]) / 2;
+  const fitsWidth = b[2] - b[0] <= box[2] - box[0];
+  return fitsWidth && cx >= box[0] && cx <= box[2] && cy >= box[1] && cy <= box[3];
+}
+
+/**
+ * Keeps only polygons that belong to `box`, so France loses French Guiana but
+ * keeps Corsica. Features are named by ISO alpha-2 where known.
  */
 export function cropToEurope(
   collection: GeoCollection,
@@ -79,8 +90,8 @@ export function cropToEurope(
     else if (g.type === 'MultiPolygon') polygons = (g as MultiPolygonGeometry).coordinates;
     else return;
     const kept = polygons.filter((poly) => {
-      const c = polygonCenter(poly);
-      return c != null && insideBox(c, box);
+      const b = polygonBounds(poly);
+      return b != null && belongsToBox(b, box);
     });
     if (kept.length === 0) return;
     const code = alpha2FromNumeric(f.id);
