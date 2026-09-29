@@ -5,6 +5,7 @@ import sys
 from ingest import db
 from ingest.config import load_env
 from ingest.jobs.daily import run_daily
+from ingest.logging_setup import configure_logging
 
 log = logging.getLogger("ingest")
 
@@ -16,7 +17,7 @@ def main(argv: list[str] | None = None) -> int:
     daily.add_argument("--only", help="kommagetrennt, z.B. crude,fx")
     args = parser.parse_args(argv)
 
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    configure_logging()
     load_env()
     only = [n.strip() for n in args.only.split(",") if n.strip()] if args.only else None
     try:
