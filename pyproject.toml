@@ -21,7 +21,7 @@ dependencies = [
 llm = ["anthropic"]
 
 [project.scripts]
-ingest = "ingest:main"
+ingest = "ingest.__main__:main"
 
 [dependency-groups]
 dev = [
