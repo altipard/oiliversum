@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Brent und Spritpreise in der EU</title>
+    <meta
+      name="description"
+      content="Wie der Brent-Rohölpreis auf die Benzin- und Dieselpreise der EU-Länder durchschlägt: Karte, Zeitreihe und Preiszerlegung aus dem EU Weekly Oil Bulletin."
+    />
+  </head>
+  <body>
+    <header class="page-header">
+      <h1>Brent und Spritpreise in der EU</h1>
+      <p class="lead">
+        Wenn Brent fällt, warum merkt man das an der Zapfsäule in Deutschland kaum, und wie sieht es in Polen oder
+        Italien aus?
+      </p>
+      <div id="config-error" class="banner banner-error" role="alert" hidden></div>
+      <section id="headline" class="headline" aria-label="Brent aktuell">
+        <p class="status" data-status></p>
+        <div class="headline-body" data-body></div>
+      </section>
+    </header>
+
+    <div class="controls" role="group" aria-label="Anzeige">
+      <div class="segmented" id="fuel-toggle" role="radiogroup" aria-label="Kraftstoff"></div>
+      <div class="segmented" id="tax-toggle" role="radiogroup" aria-label="Steuern"></div>
+    </div>
+
+    <main class="layout">
+      <section id="map-section" class="card card-map" aria-labelledby="map-title">
+        <div class="card-head">
+          <h2 id="map-title">Pumpenpreis nach Land</h2>
+          <span class="meta" data-meta></span>
+        </div>
+        <p class="status" data-status></p>
+        <div class="chart chart-map" id="map-chart"></div>
+        <p class="note">Grau: keine Daten im Bulletin (z. B. Nicht-EU-Länder).</p>
+      </section>
+
+      <section id="series-section" class="card card-series" aria-labelledby="series-title">
+        <div class="card-head">
+          <h2 id="series-title">Brent gegen Pumpenpreise</h2>
+          <div class="segmented segmented-small" id="period-toggle" role="radiogroup" aria-label="Zeitraum"></div>
+        </div>
+        <div class="chips" id="selected-countries" aria-label="Gewählte Länder"></div>
+        <p class="status" data-status></p>
+        <div class="chart chart-series" id="series-chart"></div>
+        <p class="note">
+          Brent als Wochenmittel in €/l (Rohöl pur, vor Raffinerie, Transport und Steuern). Länder über die Tabelle
+          hinzufügen, höchstens vier.
+        </p>
+      </section>
+
+      <section id="table-section" class="card card-table" aria-labelledby="table-title">
+        <div class="card-head">
+          <h2 id="table-title">Länder im Vergleich</h2>
+          <span class="meta" data-meta></span>
+        </div>
+        <p class="status" data-status></p>
+        <div class="table-scroll">
+          <table class="country-table" id="country-table"></table>
+        </div>
+        <p class="note">
+          Anteile beziehen sich auf den Preis inkl. Steuern. Verzögerung: Wochen, bis der Pumpenpreis auf Brent
+          reagiert.
+        </p>
+      </section>
+
+      <aside id="news-section" class="card card-news" aria-labelledby="news-title">
+        <div class="card-head">
+          <h2 id="news-title">Meldungen</h2>
+        </div>
+        <p class="status" data-status></p>
+        <ol class="news-list" id="news-list"></ol>
+      </aside>
+    </main>
+
+    <footer class="page-footer">
+      Quellen: EU Weekly Oil Bulletin, FRED (Brent), EZB (EUR/USD). Kartengrundlage: Natural Earth.
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
