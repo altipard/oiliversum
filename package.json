@@ -1,0 +1,9 @@
+{
+  "name": "oiliversum",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "devDependencies": {
+    "supabase": "^2.118.0"
+  }
+}

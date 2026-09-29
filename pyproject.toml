@@ -1,0 +1,38 @@
+[project]
+name = "ingest"
+version = "0.1.0"
+description = "Import von Rohoel-, FX-, Spritpreis- und News-Daten nach Supabase"
+authors = [
+    { name = "daltiparmak", email = "162328886+daltiparmak@users.noreply.github.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "httpx",
+    "supabase",
+    "openpyxl",
+    "pyyaml",
+    "feedparser",
+    "python-dotenv",
+    "numpy",
+    "pandas",
+]
+
+[project.optional-dependencies]
+llm = ["anthropic"]
+
+[project.scripts]
+ingest = "ingest:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "respx",
+    "ruff",
+]
+
+[tool.setuptools]
+packages = ["ingest"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
