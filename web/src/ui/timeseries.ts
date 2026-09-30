@@ -1,9 +1,9 @@
 import type { BreakdownRow, CrudeWeeklyRow, FuelType, NewsItem } from '../data/types';
 import { countryNameDe } from '../lib/countries';
-import { escapeHtml, formatDate, formatEurLiter } from '../lib/format';
 import { brentLine, newsMarkers, priceLine, type NewsMarker } from '../lib/series';
 import type { TaxMode } from '../lib/table';
 import { newsNear } from '../lib/timeline';
+import { seriesTooltipHtml } from '../lib/tooltip';
 import { h } from './dom';
 import { initChart, type EChartsType } from './echarts';
 import { tooltipStyle, type ChartTheme } from './theme';
@@ -60,19 +60,18 @@ export class TimeseriesView {
       const first = params[0];
       if (!first) return '';
       const date = new Date(first.axisValue).toISOString().slice(0, 10);
-      const rows = params
+      const values = params
         .filter((p) => p.seriesType === 'line')
-        .map((p) => `${p.marker}${escapeHtml(p.seriesName)}: <strong>${formatEurLiter(p.value[1])}</strong>`);
-      const near = newsNear(input.news, date, 3).slice(0, 3);
-      const news = near.map((n) => `• ${escapeHtml(n.title)}`);
-      return [`<strong>Woche ${formatDate(date)}</strong>`, ...rows, ...news].join('<br>');
+        .map((p) => ({ marker: p.marker, name: p.seriesName, value: p.value[1] }));
+      return seriesTooltipHtml(date, values, newsNear(input.news, date, 3).slice(0, 3));
     };
 
     this.chart.setOption(
       {
         backgroundColor: 'transparent',
         textStyle: { fontFamily: theme.font, color: theme.text },
-        grid: { left: 8, right: 16, top: 40, bottom: 24, containLabel: true },
+        // ECharts 6 equivalent of the deprecated `containLabel: true`
+        grid: { left: 8, right: 16, top: 40, bottom: 24, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
         legend: {
           type: 'scroll',
           top: 0,
