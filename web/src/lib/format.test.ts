@@ -47,4 +47,14 @@ describe('escapeHtml', () => {
   it('escapes markup characters', () => {
     expect(escapeHtml('<b>"OPEC" & \'Co\'</b>')).toBe('&lt;b&gt;&quot;OPEC&quot; &amp; &#39;Co&#39;&lt;/b&gt;');
   });
+
+  it('neutralises an injected image tag in a headline', () => {
+    const out = escapeHtml('<img src=x onerror=alert(1)> Ölpreis "fällt"');
+    expect(out).toBe('&lt;img src=x onerror=alert(1)&gt; Ölpreis &quot;fällt&quot;');
+    expect(out).not.toMatch(/[<>"]/);
+  });
+
+  it('escapes the ampersand first so entities are not double-interpreted', () => {
+    expect(escapeHtml('&lt;script&gt;')).toBe('&amp;lt;script&amp;gt;');
+  });
 });

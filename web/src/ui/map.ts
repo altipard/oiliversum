@@ -2,10 +2,10 @@ import { feature } from 'topojson-client';
 import type { GeometryCollection, Topology } from 'topojson-specification';
 import atlasUrl from 'world-atlas/countries-50m.json?url';
 import type { BreakdownRow, FuelType } from '../data/types';
-import { countryNameDe } from '../lib/countries';
-import { escapeHtml, formatEurLiter, formatShare, perLiter } from '../lib/format';
+import { formatEurLiter, perLiter } from '../lib/format';
 import { cropToEurope, type GeoCollection } from '../lib/geo';
-import { priceOf, taxShare, type TaxMode } from '../lib/table';
+import { priceOf, type TaxMode } from '../lib/table';
+import { mapNoDataHtml, mapTooltipHtml } from '../lib/tooltip';
 import { initChart, echarts, type EChartsType } from './echarts';
 import { tooltipStyle, type ChartTheme } from './theme';
 
@@ -27,19 +27,6 @@ interface MapDatum {
   name: string;
   value: number;
   row: BreakdownRow;
-}
-
-function tooltipHtml(d: MapDatum, tax: TaxMode): string {
-  const r = d.row;
-  const lines = [
-    `<strong>${escapeHtml(countryNameDe(r.country_code))}</strong>`,
-    `${tax === 'with' ? 'Preis inkl. Steuern' : 'Preis ohne Steuern'}: <strong>${formatEurLiter(d.value)}</strong>`,
-    `Rohöl (Brent): ${formatEurLiter(perLiter(r.crude_eur_1000l))} (${formatShare(r.crude_share)})`,
-    `Marge, Raffinerie, Logistik: ${formatEurLiter(perLiter(r.margin_eur_1000l))}`,
-    `Steuern und Abgaben: ${formatEurLiter(perLiter(r.tax_eur_1000l))} (${formatShare(taxShare(r))})`,
-  ];
-  if (tax === 'without') lines.push(`Preis inkl. Steuern: ${formatEurLiter(perLiter(r.eur_1000l_with_tax))}`);
-  return lines.join('<br>');
 }
 
 export class MapView {
@@ -71,7 +58,7 @@ export class MapView {
           ...tooltipStyle(theme),
           trigger: 'item',
           formatter: (p: { data?: MapDatum; name: string }) =>
-            p.data?.row ? tooltipHtml(p.data, tax) : `${escapeHtml(countryNameDe(p.name))}<br>keine Daten`,
+            p.data?.row ? mapTooltipHtml(p.data.row, p.data.value, tax) : mapNoDataHtml(p.name),
         },
         visualMap: {
           type: 'continuous',
