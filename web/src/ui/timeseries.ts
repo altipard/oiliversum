@@ -72,7 +72,8 @@ export class TimeseriesView {
       {
         backgroundColor: 'transparent',
         textStyle: { fontFamily: theme.font, color: theme.text },
-        grid: { left: 8, right: 16, top: 40, bottom: 24, containLabel: true },
+        // ECharts 6 equivalent of the deprecated `containLabel: true`
+        grid: { left: 8, right: 16, top: 40, bottom: 24, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
         legend: {
           type: 'scroll',
           top: 0,
