@@ -47,8 +47,9 @@ jobs:
       # Fresh database per run: migrations apply on start, ingest backfills from 2015.
       - name: Start Supabase
         run: |
-          npx supabase start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          npx supabase start -x realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
           eval "$(npx supabase status -o env)"
+          test -n "$SERVICE_ROLE_KEY" || { echo "supabase status: no SERVICE_ROLE_KEY"; exit 1; }
           echo "SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
           echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
 
