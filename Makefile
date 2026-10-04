@@ -1,4 +1,4 @@
-.PHONY: install db-start db-stop db-reset test lint
+.PHONY: install db-start db-stop db-reset ingest export test lint
 
 install:
 	uv sync
@@ -12,6 +12,12 @@ db-stop:
 
 db-reset:
 	npx supabase db reset
+
+ingest:
+	uv run python -m ingest daily
+
+export:
+	uv run python -m ingest export
 
 test:
 	uv run pytest
