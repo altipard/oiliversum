@@ -1,14 +1,9 @@
 import './style.css';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { createReadClient } from './data/client';
 import {
-  fetchBrentRecent,
   fetchCountrySeries,
-  fetchCountryStats,
   fetchCrudeWeekly,
-  fetchLatestBulletinDate,
-  fetchLatestWeeks,
   fetchNewsSince,
+  fetchSummary,
   fetchTopNews,
   type LatestWeeks,
 } from './data/queries';
@@ -52,7 +47,6 @@ const state: State = {
 };
 
 // Loaded data; null = not loaded (yet).
-let db: SupabaseClient | null = null;
 let weeks: LatestWeeks | null = null;
 let stats: CountryStatRow[] = [];
 let crude: CrudeWeeklyRow[] | null = null;
@@ -156,31 +150,27 @@ function renderAll(): void {
 // Loading
 // ---------------------------------------------------------------------------
 
-async function loadHeadline(client: SupabaseClient): Promise<void> {
+async function loadHeadline(): Promise<void> {
   status.headline.loading();
   const body = sections.headline.querySelector<HTMLElement>('[data-body]')!;
-  const [brent, bulletin] = await Promise.allSettled([fetchBrentRecent(client), fetchLatestBulletinDate(client)]);
-  const bulletinDate = bulletin.status === 'fulfilled' ? bulletin.value : null;
-  if (brent.status === 'rejected') {
-    status.headline.error('Der Brent-Preis', brent.reason);
-    renderHeadline(body, null, bulletinDate);
-    return;
+  try {
+    const summary = await fetchSummary();
+    status.headline.clear();
+    renderHeadline(body, brentHeadline(summary.brent, summary.fx), summary.latestBulletin);
+  } catch (err) {
+    status.headline.error('Der Brent-Preis', err);
+    renderHeadline(body, null, null);
   }
-  status.headline.clear();
-  renderHeadline(body, brentHeadline(brent.value.crude, brent.value.fx), bulletinDate);
-  if (bulletin.status === 'rejected') status.headline.error('Das Datum des Bulletins', bulletin.reason);
 }
 
-async function loadMapAndTable(client: SupabaseClient): Promise<void> {
+async function loadMapAndTable(): Promise<void> {
   status.map.loading();
   status.table.loading();
-  const [geo, latest, statRows] = await Promise.allSettled([
-    loadEuropeMap(),
-    fetchLatestWeeks(client),
-    fetchCountryStats(client),
-  ]);
-  if (latest.status === 'fulfilled') weeks = latest.value;
-  if (statRows.status === 'fulfilled') stats = statRows.value;
+  const [geo, latest] = await Promise.allSettled([loadEuropeMap(), fetchSummary()]);
+  if (latest.status === 'fulfilled') {
+    weeks = latest.value.weeks;
+    stats = latest.value.countryStats;
+  }
   mapReady = geo.status === 'fulfilled';
 
   if (latest.status === 'rejected') {
@@ -195,24 +185,23 @@ async function loadMapAndTable(client: SupabaseClient): Promise<void> {
   }
   if (geo.status === 'rejected') status.map.error('Die Kartengeometrie', geo.reason);
   else status.map.clear();
-  if (statRows.status === 'rejected') status.table.error('Die Verzögerungswerte', statRows.reason);
-  else status.table.clear();
+  status.table.clear();
   renderMap();
   renderCountryTable();
 }
 
-async function loadSeries(client: SupabaseClient, end: string): Promise<void> {
+async function loadSeries(end: string): Promise<void> {
   status.series.loading();
   const from = periodStart(end, '5J');
   seriesFrom = from;
   const codes = [...state.selected];
   const [crudeRes, newsRes, countryRes] = await Promise.all([
-    fetchCrudeWeekly(client, from).then(
+    fetchCrudeWeekly(from).then(
       (rows) => ({ ok: true as const, rows }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
-    fetchNewsSince(client, from, NEWS_MIN_RELEVANCE).catch(() => null),
-    Promise.allSettled(codes.map((code) => fetchCountrySeries(client, code, from))),
+    fetchNewsSince(from, NEWS_MIN_RELEVANCE).catch(() => null),
+    Promise.allSettled(codes.map((code) => fetchCountrySeries(code, from))),
   ]);
   if (crudeRes.ok) crude = crudeRes.rows;
   if (newsRes) newsOnAxis = newsRes;
@@ -232,10 +221,10 @@ async function loadSeries(client: SupabaseClient, end: string): Promise<void> {
   renderSeries();
 }
 
-async function loadNews(client: SupabaseClient): Promise<void> {
+async function loadNews(): Promise<void> {
   status.news.loading();
   try {
-    const items = await fetchTopNews(client, NEWS_MIN_RELEVANCE, NEWS_LIMIT);
+    const items = await fetchTopNews(NEWS_MIN_RELEVANCE, NEWS_LIMIT);
     status.news.clear();
     renderNews(byId('news-list'), topNews(items));
   } catch (err) {
@@ -245,10 +234,10 @@ async function loadNews(client: SupabaseClient): Promise<void> {
 
 async function selectCountry(code: string): Promise<void> {
   if (addCountry(state.selected, code) === state.selected) return;
-  if (!countrySeries.has(code) && db && seriesFrom) {
+  if (!countrySeries.has(code) && seriesFrom) {
     status.series.loading(`Lädt ${countryNameDe(code)} …`);
     try {
-      countrySeries.set(code, await fetchCountrySeries(db, code, seriesFrom));
+      countrySeries.set(code, await fetchCountrySeries(code, seriesFrom));
       status.series.clear();
     } catch (err) {
       status.series.error(`Die Zeitreihe für ${countryNameDe(code)}`, err, crude?.at(-1)?.week_date ?? null);
@@ -308,20 +297,10 @@ function setupControls(): void {
 async function main(): Promise<void> {
   setupControls();
   renderSeries();
-  const cfg = createReadClient();
-  if (!cfg.ok) {
-    const banner = byId('config-error');
-    banner.textContent = `Keine Datenverbindung: ${cfg.missing.join(' und ')} fehlt. Die Variablen in .env oder .env.local im Repo-Root setzen und den Dev-Server neu starten.`;
-    banner.hidden = false;
-    for (const s of Object.values(status)) s.loading('Keine Daten, Konfiguration fehlt.');
-    return;
-  }
-  db = cfg.client;
-  const client = cfg.client;
   await Promise.all([
-    loadHeadline(client),
-    loadNews(client),
-    loadMapAndTable(client).then(() => loadSeries(client, weeks?.latestWeek ?? today())),
+    loadHeadline(),
+    loadNews(),
+    loadMapAndTable().then(() => loadSeries(weeks?.latestWeek ?? today())),
   ]);
 }
 
