@@ -1,0 +1,79 @@
+name: pages
+
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Install
+        run: |
+          uv sync --frozen
+          npm ci
+          npm ci --prefix web
+
+      - name: Checks
+        run: |
+          uv run ruff check ingest
+          uv run pytest -q
+          npm test --prefix web
+
+      # Fresh database per run: migrations apply on start, ingest backfills from 2015.
+      - name: Start Supabase
+        run: |
+          npx supabase start -x gotrue,realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          eval "$(npx supabase status -o env)"
+          echo "SUPABASE_URL=$API_URL" >> "$GITHUB_ENV"
+          echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY" >> "$GITHUB_ENV"
+
+      - name: Ingest
+        env:
+          CRUDE_SOURCE: fred
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: uv run python -m ingest daily
+
+      - name: Export
+        run: uv run python -m ingest export --out web/public/data
+
+      - name: Build
+        run: npm run build --prefix web
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
