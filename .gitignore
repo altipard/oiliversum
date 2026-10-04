@@ -4,6 +4,7 @@
 node_modules/
 .venv/
 dist/
+web/public/data/
 supabase/.temp/
 *.egg-info/
 __pycache__/

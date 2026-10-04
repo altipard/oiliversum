@@ -1,46 +1,12 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchAllPages, type PageResult } from '../lib/paging';
-import type {
-  BreakdownRow,
-  CountryStatRow,
-  CrudePriceRow,
-  CrudeWeeklyRow,
-  FxRateRow,
-  NewsItem,
-} from './types';
+// Static JSON files written by `ingest export` into public/data.
+import type { BreakdownRow, CountryStatRow, CrudePriceRow, CrudeWeeklyRow, FxRateRow, NewsItem } from './types';
 
-const BREAKDOWN_COLUMNS =
-  'week_date,country_code,fuel_type,eur_1000l_with_tax,eur_1000l_without_tax,tax_eur_1000l,crude_eur_1000l,margin_eur_1000l,crude_share';
-const NEWS_COLUMNS = 'title,url,published_at,relevance,direction,source';
+const DATA_URL = `${import.meta.env.BASE_URL}data/`;
 
-function unwrap<T>({ data, error }: PageResult<T>): T[] {
-  if (error) throw new Error(error.message);
-  return data ?? [];
-}
-
-export interface BrentRecent {
-  crude: CrudePriceRow[];
-  fx: FxRateRow[];
-}
-
-/** Last Brent quotes (enough for day and week change) and matching EURUSD rates. */
-export async function fetchBrentRecent(db: SupabaseClient): Promise<BrentRecent> {
-  const [crude, fx] = await Promise.all([
-    db
-      .from('crude_prices')
-      .select('date,price_usd_bbl')
-      .eq('benchmark', 'brent')
-      .order('date', { ascending: false })
-      .limit(15),
-    db.from('fx_rates').select('date,rate').eq('pair', 'EURUSD').order('date', { ascending: false }).limit(30),
-  ]);
-  return { crude: unwrap<CrudePriceRow>(crude), fx: unwrap<FxRateRow>(fx) };
-}
-
-/** Reference date of the newest bulletin week in fuel_prices, or null if empty. */
-export async function fetchLatestBulletinDate(db: SupabaseClient): Promise<string | null> {
-  const res = await db.from('fuel_prices').select('week_date').order('week_date', { ascending: false }).limit(1);
-  return unwrap<{ week_date: string }>(res)[0]?.week_date ?? null;
+async function getJson<T>(path: string): Promise<T> {
+  const res = await fetch(DATA_URL + path);
+  if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
+  return (await res.json()) as T;
 }
 
 export interface LatestWeeks {
@@ -50,78 +16,62 @@ export interface LatestWeeks {
   previous: BreakdownRow[];
 }
 
-/** Breakdown rows of the two newest weeks that have a crude_weekly row. */
-export async function fetchLatestWeeks(db: SupabaseClient): Promise<LatestWeeks> {
-  const weeks = unwrap<{ week_date: string }>(
-    await db.from('crude_weekly').select('week_date').order('week_date', { ascending: false }).limit(2),
-  ).map((w) => w.week_date);
-  const [latestWeek = null, previousWeek = null] = weeks;
-  if (!latestWeek) return { latestWeek, previousWeek, latest: [], previous: [] };
-  const rows = unwrap<BreakdownRow>(
-    await db.from('fuel_price_breakdown').select(BREAKDOWN_COLUMNS).in('week_date', weeks),
-  );
-  return {
-    latestWeek,
-    previousWeek,
-    latest: rows.filter((r) => r.week_date === latestWeek),
-    previous: rows.filter((r) => r.week_date === previousWeek),
-  };
+export interface Summary {
+  generatedAt: string;
+  /** Last Brent quotes (enough for day and week change), newest first. */
+  brent: CrudePriceRow[];
+  /** Matching EURUSD rates, newest first. */
+  fx: FxRateRow[];
+  /** Reference date of the newest bulletin week, or null if empty. */
+  latestBulletin: string | null;
+  /** Breakdown rows of the two newest weeks that have a crude_weekly row. */
+  weeks: LatestWeeks;
+  countryStats: CountryStatRow[];
 }
 
-export async function fetchCountryStats(db: SupabaseClient): Promise<CountryStatRow[]> {
-  return unwrap<CountryStatRow>(
-    await db.from('country_stats').select('country_code,fuel_type,lag_weeks,asymmetry,computed_at'),
-  );
+let summary: Promise<Summary> | null = null;
+let crudeWeekly: Promise<CrudeWeeklyRow[]> | null = null;
+let news: Promise<NewsItem[]> | null = null;
+
+export function fetchSummary(): Promise<Summary> {
+  summary ??= getJson<Summary>('summary.json');
+  return summary;
 }
 
 /** Weekly Brent in EUR per 1000 l from `from` on, ascending. */
-export async function fetchCrudeWeekly(db: SupabaseClient, from: string): Promise<CrudeWeeklyRow[]> {
-  return fetchAllPages<CrudeWeeklyRow>((a, b) =>
-    db
-      .from('crude_weekly')
-      .select('week_date,brent_usd_bbl,eurusd,brent_eur_1000l,trading_days')
-      .gte('week_date', from)
-      .order('week_date', { ascending: true })
-      .range(a, b),
-  );
+export async function fetchCrudeWeekly(from: string): Promise<CrudeWeeklyRow[]> {
+  crudeWeekly ??= getJson<CrudeWeeklyRow[]>('crude-weekly.json');
+  return (await crudeWeekly).filter((r) => r.week_date >= from);
 }
 
-/** Both fuel types of one country from `from` on, ascending. */
-export async function fetchCountrySeries(db: SupabaseClient, code: string, from: string): Promise<BreakdownRow[]> {
-  return fetchAllPages<BreakdownRow>((a, b) =>
-    db
-      .from('fuel_price_breakdown')
-      .select(BREAKDOWN_COLUMNS)
-      .eq('country_code', code)
-      .gte('week_date', from)
-      .order('week_date', { ascending: true })
-      .order('fuel_type', { ascending: true })
-      .range(a, b),
-  );
+/** Both fuel types of one country from `from` on, ascending; empty for countries without data. */
+export async function fetchCountrySeries(code: string, from: string): Promise<BreakdownRow[]> {
+  if (!/^[A-Z]{2}$/.test(code)) throw new Error(`Ungültiger Ländercode: ${code}`);
+  const res = await fetch(`${DATA_URL}series/${code}.json`);
+  if (res.status === 404) return [];
+  if (!res.ok) throw new Error(`series/${code}.json: HTTP ${res.status}`);
+  return ((await res.json()) as BreakdownRow[]).filter((r) => r.week_date >= from);
+}
+
+function allNews(): Promise<NewsItem[]> {
+  news ??= getJson<NewsItem[]>('news.json');
+  return news;
 }
 
 /** The most relevant news items above `minRelevance`. */
-export async function fetchTopNews(db: SupabaseClient, minRelevance: number, limit: number): Promise<NewsItem[]> {
-  return unwrap<NewsItem>(
-    await db
-      .from('news_items')
-      .select(NEWS_COLUMNS)
-      .gt('relevance', minRelevance)
-      .order('relevance', { ascending: false })
-      .order('published_at', { ascending: false, nullsFirst: false })
-      .limit(limit),
-  );
+export async function fetchTopNews(minRelevance: number, limit: number): Promise<NewsItem[]> {
+  return (await allNews())
+    .filter((n) => (n.relevance ?? 0) > minRelevance)
+    .sort(
+      (a, b) =>
+        (b.relevance ?? 0) - (a.relevance ?? 0) || (b.published_at ?? '').localeCompare(a.published_at ?? ''),
+    )
+    .slice(0, limit);
 }
 
-/** Relevant news published since `from`, for markers on the time axis. */
-export async function fetchNewsSince(db: SupabaseClient, from: string, minRelevance: number): Promise<NewsItem[]> {
-  return fetchAllPages<NewsItem>((a, b) =>
-    db
-      .from('news_items')
-      .select(NEWS_COLUMNS)
-      .gt('relevance', minRelevance)
-      .gte('published_at', from)
-      .order('published_at', { ascending: true })
-      .range(a, b),
-  );
+/** Relevant news published since `from`, ascending, for markers on the time axis. */
+export async function fetchNewsSince(from: string, minRelevance: number): Promise<NewsItem[]> {
+  return (await allNews())
+    .filter((n) => (n.relevance ?? 0) > minRelevance && n.published_at !== null && n.published_at >= from)
+    .sort((a, b) => a.published_at!.localeCompare(b.published_at!));
 }
