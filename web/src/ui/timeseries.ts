@@ -1,6 +1,6 @@
 import type { BreakdownRow, CrudeWeeklyRow, FuelType, MarketEvent, NewsDirection, NewsItem } from '../data/types';
 import { countryNameDe } from '../lib/countries';
-import { eventMarkers, eventsNear, type EventMarker } from '../lib/events';
+import { eventMarkers, eventsNear, isEventSelected, type EventMarker } from '../lib/events';
 import { brentLine, newsMarkers, priceLine, type NewsMarker } from '../lib/series';
 import type { TaxMode } from '../lib/table';
 import { newsNear } from '../lib/timeline';
@@ -19,9 +19,12 @@ export interface SeriesInput {
   selected: readonly string[];
   fuel: FuelType;
   tax: TaxMode;
-  from: string;
+  /** Visible date range of the x-axis; the series carry the full history. */
+  window: { start: string; end: string };
   news: readonly NewsItem[];
   events: readonly MarketEvent[];
+  /** Event picked in the sidebar list, highlighted on the chart. */
+  selectedEvent: MarketEvent | null;
 }
 
 interface AxisParam {
@@ -51,13 +54,14 @@ export class TimeseriesView {
   }
 
   render(input: SeriesInput, theme: ChartTheme): void {
-    const brent = brentLine(input.crude, input.from);
+    // Full history; the visible range comes from the x-axis window below.
+    const brent = brentLine(input.crude, '');
     const markers = newsMarkers(input.news, brent);
     const eventPts = eventMarkers(input.events, brent);
-    const lines = input.selected.map((code) => ({
-      code,
-      data: priceLine(input.countries.get(code) ?? [], input.fuel, input.tax, input.from),
-    }));
+    const lines = input.selected.map((code) => {
+      const rows = input.countries.get(code) ?? [];
+      return { code, data: priceLine(rows, input.fuel, input.tax, '') };
+    });
 
     const tooltipFormatter = (raw: unknown): string => {
       const params = (Array.isArray(raw) ? raw : [raw]) as AxisParam[];
@@ -91,6 +95,8 @@ export class TimeseriesView {
         tooltip: { ...tooltipStyle(theme), trigger: 'axis', formatter: tooltipFormatter },
         xAxis: {
           type: 'time',
+          min: input.window.start,
+          max: input.window.end,
           axisLine: { lineStyle: { color: theme.border } },
           axisLabel: { color: theme.muted, hideOverlap: true },
           splitLine: { show: false },
@@ -134,11 +140,18 @@ export class TimeseriesView {
             name: EVENTS_NAME,
             type: 'scatter',
             symbol: 'diamond',
-            data: eventPts.map((m: EventMarker) => ({
-              value: [m.date, m.value],
-              symbolSize: 9 + 3 * (m.item.severity ?? 2),
-              itemStyle: { color: directionColor(m.item.direction, theme), borderColor: theme.surface, borderWidth: 1 },
-            })),
+            data: eventPts.map((m: EventMarker) => {
+              const focused = isEventSelected(m.item, input.selectedEvent);
+              return {
+                value: [m.date, m.value],
+                symbolSize: (9 + 3 * (m.item.severity ?? 2)) * (focused ? 1.8 : 1),
+                itemStyle: {
+                  color: directionColor(m.item.direction, theme),
+                  borderColor: focused ? theme.text : theme.surface,
+                  borderWidth: focused ? 3 : 1,
+                },
+              };
+            }),
             z: 6,
           },
         ],

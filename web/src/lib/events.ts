@@ -46,3 +46,19 @@ export function eventsNear(items: readonly MarketEvent[], date: string, days: nu
     return d != null && d >= from && d <= to;
   });
 }
+
+/** Newest first, for the sidebar list. */
+export function eventsNewestFirst(items: readonly MarketEvent[]): MarketEvent[] {
+  return [...items].sort((a, b) => b.event_date.localeCompare(a.event_date));
+}
+
+/** Visible window of ±`weeks` around `date`, clamped to `earliest`. */
+export function focusWindow(date: string, weeks: number, earliest: string): { start: string; end: string } {
+  const start = shiftDate(date, -7 * weeks);
+  return { start: start < earliest ? earliest : start, end: shiftDate(date, 7 * weeks) };
+}
+
+/** Stable identity of an event, used to match the list selection to the chart. */
+export function isEventSelected(event: MarketEvent, selected: MarketEvent | null): boolean {
+  return selected != null && selected.event_date === event.event_date && selected.title === event.title;
+}

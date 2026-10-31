@@ -5,31 +5,34 @@ import {
   fetchEventsSince,
   fetchNewsSince,
   fetchSummary,
-  fetchTopNews,
   type LatestWeeks,
 } from './data/queries';
 import type { BreakdownRow, CountryStatRow, CrudeWeeklyRow, FuelType, MarketEvent, NewsItem } from './data/types';
 import { brentHeadline } from './lib/brent';
 import { countryNameDe } from './lib/countries';
+import { eventsNewestFirst, focusWindow, isEventSelected } from './lib/events';
 import { formatDate } from './lib/format';
 import { buildCountryRows, nextSort, sortCountryRows, type SortDir, type SortKey, type TaxMode } from './lib/table';
 import {
   addCountry,
-  NEWS_LIMIT,
   NEWS_MIN_RELEVANCE,
   PERIODS,
   periodStart,
   removeCountry,
-  topNews,
   type Period,
 } from './lib/timeline';
 import { byId, SectionStatus, segmented } from './ui/dom';
+import { renderEvents } from './ui/events';
 import { renderHeadline } from './ui/header';
 import { FUEL_LABEL, loadEuropeMap, MapView } from './ui/map';
-import { renderNews } from './ui/news';
 import { renderTable } from './ui/table';
 import { onThemeChange, readTheme } from './ui/theme';
 import { renderChips, TimeseriesView } from './ui/timeseries';
+
+/** Full backfill start; the chart loads the whole history so any event is reachable. */
+const HISTORY_FROM = '2015-01-01';
+/** Half-width of the window the chart zooms to around a selected event. */
+const FOCUS_WEEKS = 8;
 
 interface State {
   fuel: FuelType;
@@ -37,6 +40,9 @@ interface State {
   period: Period;
   selected: readonly string[];
   sort: { key: SortKey; dir: SortDir };
+  /** Chart window override after picking an event; null = use `period`. */
+  focus: { start: string; end: string } | null;
+  focusedEvent: MarketEvent | null;
 }
 
 const state: State = {
@@ -45,6 +51,8 @@ const state: State = {
   period: '6M',
   selected: ['DE', 'FR', 'IT', 'PL'],
   sort: { key: 'price', dir: 'desc' },
+  focus: null,
+  focusedEvent: null,
 };
 
 // Loaded data; null = not loaded (yet).
@@ -64,14 +72,14 @@ const sections = {
   map: byId('map-section'),
   series: byId('series-section'),
   table: byId('table-section'),
-  news: byId('news-section'),
+  events: byId('events-section'),
 };
 const status = {
   headline: new SectionStatus(sections.headline),
   map: new SectionStatus(sections.map),
   series: new SectionStatus(sections.series),
   table: new SectionStatus(sections.table),
-  news: new SectionStatus(sections.news),
+  events: new SectionStatus(sections.events),
 };
 
 const mapView = new MapView(byId('map-chart'), (code) => void selectCountry(code));
@@ -135,12 +143,33 @@ function renderSeries(): void {
       selected: state.selected.filter((c) => countrySeries.has(c)),
       fuel: state.fuel,
       tax: state.tax,
-      from: periodStart(end, state.period),
+      window: state.focus ?? { start: periodStart(end, state.period), end },
       news: newsOnAxis,
       events: eventsOnAxis,
+      selectedEvent: state.focusedEvent,
     },
     theme,
   );
+}
+
+function renderEventsList(): void {
+  renderEvents(byId('events-list'), eventsNewestFirst(eventsOnAxis), state.focusedEvent, selectEvent);
+}
+
+/** Zoom the chart onto the event; picking the same event again returns to the period. */
+function selectEvent(event: MarketEvent): void {
+  if (isEventSelected(event, state.focusedEvent)) {
+    state.focusedEvent = null;
+    state.focus = null;
+  } else {
+    state.focusedEvent = event;
+    state.focus = focusWindow(event.event_date, FOCUS_WEEKS, HISTORY_FROM);
+  }
+  renderSeries();
+  renderEventsList();
+  if (window.matchMedia('(max-width: 999px)').matches) {
+    sections.series.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function renderAll(): void {
@@ -193,23 +222,28 @@ async function loadMapAndTable(): Promise<void> {
   renderCountryTable();
 }
 
-async function loadSeries(end: string): Promise<void> {
+async function loadSeries(): Promise<void> {
   status.series.loading();
-  const from = periodStart(end, '5J');
-  seriesFrom = from;
+  status.events.loading();
+  seriesFrom = HISTORY_FROM;
   const codes = [...state.selected];
   const [crudeRes, newsRes, eventsRes, countryRes] = await Promise.all([
-    fetchCrudeWeekly(from).then(
+    fetchCrudeWeekly(HISTORY_FROM).then(
       (rows) => ({ ok: true as const, rows }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
-    fetchNewsSince(from, NEWS_MIN_RELEVANCE).catch(() => null),
-    fetchEventsSince(from).catch(() => []),
-    Promise.allSettled(codes.map((code) => fetchCountrySeries(code, from))),
+    fetchNewsSince(HISTORY_FROM, NEWS_MIN_RELEVANCE).catch(() => null),
+    fetchEventsSince(HISTORY_FROM).catch(() => null),
+    Promise.allSettled(codes.map((code) => fetchCountrySeries(code, HISTORY_FROM))),
   ]);
   if (crudeRes.ok) crude = crudeRes.rows;
   if (newsRes) newsOnAxis = newsRes;
-  eventsOnAxis = eventsRes;
+  if (eventsRes) {
+    eventsOnAxis = eventsRes;
+    status.events.clear();
+  } else {
+    status.events.error('Die Ereignisse', 'Abfrage fehlgeschlagen');
+  }
   const failed: string[] = [];
   countryRes.forEach((res, i) => {
     const code = codes[i]!;
@@ -224,17 +258,7 @@ async function loadSeries(end: string): Promise<void> {
     status.series.clear();
   }
   renderSeries();
-}
-
-async function loadNews(): Promise<void> {
-  status.news.loading();
-  try {
-    const items = await fetchTopNews(NEWS_MIN_RELEVANCE, NEWS_LIMIT);
-    status.news.clear();
-    renderNews(byId('news-list'), topNews(items));
-  } catch (err) {
-    status.news.error('Die Meldungen', err);
-  }
+  renderEventsList();
 }
 
 async function selectCountry(code: string): Promise<void> {
@@ -290,7 +314,10 @@ function setupControls(): void {
     state.period,
     (period) => {
       state.period = period;
+      state.focus = null;
+      state.focusedEvent = null;
       renderSeries();
+      renderEventsList();
     },
   );
   onThemeChange(() => {
@@ -304,8 +331,7 @@ async function main(): Promise<void> {
   renderSeries();
   await Promise.all([
     loadHeadline(),
-    loadNews(),
-    loadMapAndTable().then(() => loadSeries(weeks?.latestWeek ?? today())),
+    loadMapAndTable().then(() => loadSeries()),
   ]);
 }
 
