@@ -55,6 +55,7 @@ def build_files(
     breakdown: Rows,
     stats: Rows,
     news: Rows,
+    events: Rows,
     generated_at: str,
 ) -> dict[str, Any]:
     """Dateipfad -> JSON-Inhalt; Zeitreihen aufsteigend, Brent/FX absteigend."""
@@ -73,6 +74,7 @@ def build_files(
         "summary.json": summary,
         "crude-weekly.json": sorted(crude_weekly, key=lambda r: r["week_date"]),
         "news.json": news,
+        "events.json": sorted(events, key=lambda r: r["event_date"]),
     }
     for code, rows in by_country.items():
         files[f"series/{code}.json"] = rows
@@ -121,6 +123,12 @@ def collect(client) -> dict[str, Any]:
             "news_items",
             "title,url,published_at,relevance,direction,source",
             ["published_at"],
+        ),
+        events=fetch_all(
+            client,
+            "market_events",
+            "event_date,title,category,direction,severity,description,source_url,tags",
+            ["event_date"],
         ),
         generated_at=datetime.now(UTC).isoformat(),
     )

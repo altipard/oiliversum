@@ -23,6 +23,7 @@ def build(**overrides):
         "breakdown": [],
         "stats": [],
         "news": [],
+        "events": [],
         "generated_at": "2026-10-04T06:00:00+00:00",
     }
     return export.build_files(**(args | overrides))
@@ -72,6 +73,11 @@ def test_series_per_country_sorted_by_week_and_fuel():
         ("2026-09-28", "euro95"),
     ]
     assert len(files["series/PL.json"]) == 1
+
+
+def test_events_sorted_by_date_ascending():
+    events = [{"event_date": "2026-02-28"}, {"event_date": "2019-09-14"}]
+    assert [e["event_date"] for e in build(events=events)["events.json"]] == ["2019-09-14", "2026-02-28"]
 
 
 def test_fetch_all_pages_until_short_page(monkeypatch):
