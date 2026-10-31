@@ -2,12 +2,13 @@ import './style.css';
 import {
   fetchCountrySeries,
   fetchCrudeWeekly,
+  fetchEventsSince,
   fetchNewsSince,
   fetchSummary,
   fetchTopNews,
   type LatestWeeks,
 } from './data/queries';
-import type { BreakdownRow, CountryStatRow, CrudeWeeklyRow, FuelType, NewsItem } from './data/types';
+import type { BreakdownRow, CountryStatRow, CrudeWeeklyRow, FuelType, MarketEvent, NewsItem } from './data/types';
 import { brentHeadline } from './lib/brent';
 import { countryNameDe } from './lib/countries';
 import { formatDate } from './lib/format';
@@ -52,6 +53,7 @@ let stats: CountryStatRow[] = [];
 let crude: CrudeWeeklyRow[] | null = null;
 let seriesFrom: string | null = null;
 let newsOnAxis: NewsItem[] = [];
+let eventsOnAxis: MarketEvent[] = [];
 let mapReady = false;
 const countrySeries = new Map<string, BreakdownRow[]>();
 
@@ -135,6 +137,7 @@ function renderSeries(): void {
       tax: state.tax,
       from: periodStart(end, state.period),
       news: newsOnAxis,
+      events: eventsOnAxis,
     },
     theme,
   );
@@ -195,16 +198,18 @@ async function loadSeries(end: string): Promise<void> {
   const from = periodStart(end, '5J');
   seriesFrom = from;
   const codes = [...state.selected];
-  const [crudeRes, newsRes, countryRes] = await Promise.all([
+  const [crudeRes, newsRes, eventsRes, countryRes] = await Promise.all([
     fetchCrudeWeekly(from).then(
       (rows) => ({ ok: true as const, rows }),
       (err: unknown) => ({ ok: false as const, err }),
     ),
     fetchNewsSince(from, NEWS_MIN_RELEVANCE).catch(() => null),
+    fetchEventsSince(from).catch(() => []),
     Promise.allSettled(codes.map((code) => fetchCountrySeries(code, from))),
   ]);
   if (crudeRes.ok) crude = crudeRes.rows;
   if (newsRes) newsOnAxis = newsRes;
+  eventsOnAxis = eventsRes;
   const failed: string[] = [];
   countryRes.forEach((res, i) => {
     const code = codes[i]!;

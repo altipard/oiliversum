@@ -1,8 +1,9 @@
 // HTML for ECharts tooltips. ECharts inserts formatter output as HTML, so every
 // text that comes from data (country codes/names, series names, news titles) is
 // escaped here; only numbers formatted by us and ECharts' own markers stay raw.
-import type { BreakdownRow, NewsItem } from '../data/types';
+import type { BreakdownRow, MarketEvent, NewsItem } from '../data/types';
 import { countryNameDe } from './countries';
+import { CATEGORY_LABEL } from './events';
 import { escapeHtml, formatDate, formatEurLiter, formatShare, perLiter } from './format';
 import { taxShare, type TaxMode } from './table';
 
@@ -31,11 +32,17 @@ export interface SeriesValue {
   value: number;
 }
 
-/** Time series tooltip: one line per series, then headlines of news near that week. */
-export function seriesTooltipHtml(date: string, values: readonly SeriesValue[], news: readonly NewsItem[]): string {
+/** Time series tooltip: one line per series, then events and news near that week. */
+export function seriesTooltipHtml(
+  date: string,
+  values: readonly SeriesValue[],
+  news: readonly NewsItem[] = [],
+  events: readonly MarketEvent[] = [],
+): string {
   return [
     `<strong>Woche ${formatDate(date)}</strong>`,
     ...values.map((v) => `${v.marker}${escapeHtml(v.name)}: <strong>${formatEurLiter(v.value)}</strong>`),
+    ...events.map((e) => `◆ ${escapeHtml(e.title)} (${escapeHtml(CATEGORY_LABEL[e.category])})`),
     ...news.map((n) => `• ${escapeHtml(n.title)}`),
   ].join('<br>');
 }

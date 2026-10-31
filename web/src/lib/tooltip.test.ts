@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { BreakdownRow, NewsItem } from '../data/types';
+import type { BreakdownRow, MarketEvent, NewsItem } from '../data/types';
 import { mapNoDataHtml, mapTooltipHtml, seriesTooltipHtml } from './tooltip';
 
 const XSS = '<img src=x onerror=alert(1)>';
@@ -20,6 +20,19 @@ function row(country_code: string): BreakdownRow {
 
 function news(title: string): NewsItem {
   return { title, url: 'https://example.org', published_at: '2026-09-20', relevance: 0.9, direction: 'bearish', source: 's' };
+}
+
+function event(title: string): MarketEvent {
+  return {
+    event_date: '2026-09-21',
+    title,
+    category: 'geopolitik',
+    direction: 'bullish',
+    severity: 3,
+    description: null,
+    source_url: null,
+    tags: [],
+  };
 }
 
 describe('mapTooltipHtml', () => {
@@ -52,5 +65,12 @@ describe('seriesTooltipHtml', () => {
     expect(html).toContain('• Brent &amp; WTI &quot;fallen&quot;');
     expect(html).not.toContain('<img');
     expect(html.startsWith('<strong>Woche 21.09.2026</strong>')).toBe(true);
+  });
+
+  it('lists events with their category, escaped', () => {
+    const html = seriesTooltipHtml('2026-09-21', [], [], [event(XSS), event('Straße von Hormus gesperrt')]);
+    expect(html).toContain('◆ &lt;img src=x onerror=alert(1)&gt; (Geopolitik)');
+    expect(html).toContain('◆ Straße von Hormus gesperrt (Geopolitik)');
+    expect(html).not.toContain('<img');
   });
 });

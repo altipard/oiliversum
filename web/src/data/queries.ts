@@ -1,5 +1,5 @@
 // Static JSON files written by `ingest export` into public/data.
-import type { BreakdownRow, CountryStatRow, CrudePriceRow, CrudeWeeklyRow, FxRateRow, NewsItem } from './types';
+import type { BreakdownRow, CountryStatRow, CrudePriceRow, CrudeWeeklyRow, FxRateRow, MarketEvent, NewsItem } from './types';
 
 const DATA_URL = `${import.meta.env.BASE_URL}data/`;
 
@@ -74,4 +74,18 @@ export async function fetchNewsSince(from: string, minRelevance: number): Promis
   return (await allNews())
     .filter((n) => (n.relevance ?? 0) > minRelevance && n.published_at !== null && n.published_at >= from)
     .sort((a, b) => a.published_at!.localeCompare(b.published_at!));
+}
+
+let marketEvents: Promise<MarketEvent[]> | null = null;
+
+function allEvents(): Promise<MarketEvent[]> {
+  marketEvents ??= getJson<MarketEvent[]>('events.json');
+  return marketEvents;
+}
+
+/** Curated events from `from` on, ascending, for markers on the time axis. */
+export async function fetchEventsSince(from: string): Promise<MarketEvent[]> {
+  return (await allEvents())
+    .filter((e) => e.event_date >= from)
+    .sort((a, b) => a.event_date.localeCompare(b.event_date));
 }

@@ -51,6 +51,21 @@ export interface NewsItem {
   source: string;
 }
 
+export type MarketEventCategory = 'geopolitik' | 'opec' | 'sanktion' | 'angebot' | 'makro';
+
+/** Curated market event used as an annotation on the time series. */
+export interface MarketEvent {
+  event_date: string;
+  title: string;
+  category: MarketEventCategory;
+  direction: NewsDirection | null;
+  /** Editorial weight: 1 minor, 2 notable, 3 major. */
+  severity: number;
+  description: string | null;
+  source_url: string | null;
+  tags: string[];
+}
+
 export interface IngestRun {
   job: string;
   finished_at: string | null;

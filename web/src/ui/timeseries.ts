@@ -1,5 +1,6 @@
-import type { BreakdownRow, CrudeWeeklyRow, FuelType, NewsItem } from '../data/types';
+import type { BreakdownRow, CrudeWeeklyRow, FuelType, MarketEvent, NewsDirection, NewsItem } from '../data/types';
 import { countryNameDe } from '../lib/countries';
+import { eventMarkers, eventsNear, type EventMarker } from '../lib/events';
 import { brentLine, newsMarkers, priceLine, type NewsMarker } from '../lib/series';
 import type { TaxMode } from '../lib/table';
 import { newsNear } from '../lib/timeline';
@@ -10,6 +11,7 @@ import { tooltipStyle, type ChartTheme } from './theme';
 
 const BRENT_NAME = 'Brent (Rohöl)';
 const NEWS_NAME = 'Meldungen';
+const EVENTS_NAME = 'Ereignisse';
 
 export interface SeriesInput {
   crude: readonly CrudeWeeklyRow[];
@@ -19,6 +21,7 @@ export interface SeriesInput {
   tax: TaxMode;
   from: string;
   news: readonly NewsItem[];
+  events: readonly MarketEvent[];
 }
 
 interface AxisParam {
@@ -29,9 +32,9 @@ interface AxisParam {
   axisValue: number | string;
 }
 
-function directionColor(item: NewsItem, t: ChartTheme): string {
-  if (item.direction === 'bullish') return t.up;
-  if (item.direction === 'bearish') return t.down;
+function directionColor(direction: NewsDirection | null, t: ChartTheme): string {
+  if (direction === 'bullish') return t.up;
+  if (direction === 'bearish') return t.down;
   return t.neutral;
 }
 
@@ -50,6 +53,7 @@ export class TimeseriesView {
   render(input: SeriesInput, theme: ChartTheme): void {
     const brent = brentLine(input.crude, input.from);
     const markers = newsMarkers(input.news, brent);
+    const eventPts = eventMarkers(input.events, brent);
     const lines = input.selected.map((code) => ({
       code,
       data: priceLine(input.countries.get(code) ?? [], input.fuel, input.tax, input.from),
@@ -63,7 +67,12 @@ export class TimeseriesView {
       const values = params
         .filter((p) => p.seriesType === 'line')
         .map((p) => ({ marker: p.marker, name: p.seriesName, value: p.value[1] }));
-      return seriesTooltipHtml(date, values, newsNear(input.news, date, 3).slice(0, 3));
+      return seriesTooltipHtml(
+        date,
+        values,
+        newsNear(input.news, date, 3).slice(0, 3),
+        eventsNear(input.events, date, 3).slice(0, 3),
+      );
     };
 
     this.chart.setOption(
@@ -77,7 +86,7 @@ export class TimeseriesView {
           top: 0,
           textStyle: { color: theme.text },
           pageTextStyle: { color: theme.muted },
-          data: [BRENT_NAME, ...input.selected.map(countryNameDe)],
+          data: [BRENT_NAME, ...input.selected.map(countryNameDe), EVENTS_NAME, NEWS_NAME],
         },
         tooltip: { ...tooltipStyle(theme), trigger: 'axis', formatter: tooltipFormatter },
         xAxis: {
@@ -117,9 +126,20 @@ export class TimeseriesView {
             symbolSize: 18,
             data: markers.map((m: NewsMarker) => ({
               value: [m.date, m.value],
-              itemStyle: { color: directionColor(m.item, theme) },
+              itemStyle: { color: directionColor(m.item.direction, theme) },
             })),
             z: 5,
+          },
+          {
+            name: EVENTS_NAME,
+            type: 'scatter',
+            symbol: 'diamond',
+            data: eventPts.map((m: EventMarker) => ({
+              value: [m.date, m.value],
+              symbolSize: 9 + 3 * (m.item.severity ?? 2),
+              itemStyle: { color: directionColor(m.item.direction, theme), borderColor: theme.surface, borderWidth: 1 },
+            })),
+            z: 6,
           },
         ],
       },
