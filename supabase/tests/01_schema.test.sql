@@ -1,11 +1,12 @@
 begin;
-select plan(55);
+select plan(70);
 
 -- tables
 select has_table('public', 'crude_prices', 'crude_prices exists');
 select has_table('public', 'fx_rates', 'fx_rates exists');
 select has_table('public', 'fuel_prices', 'fuel_prices exists');
 select has_table('public', 'news_items', 'news_items exists');
+select has_table('public', 'market_events', 'market_events exists');
 select has_table('public', 'country_stats', 'country_stats exists');
 select has_table('public', 'ingest_runs', 'ingest_runs exists');
 
@@ -18,6 +19,8 @@ select columns_are('public', 'fuel_prices',
     array['week_date', 'country_code', 'fuel_type', 'eur_1000l_with_tax', 'eur_1000l_without_tax']);
 select columns_are('public', 'news_items',
     array['id', 'source', 'title', 'url', 'published_at', 'summary', 'relevance', 'direction', 'tags', 'created_at']);
+select columns_are('public', 'market_events',
+    array['id', 'event_date', 'title', 'category', 'direction', 'severity', 'description', 'source_url', 'tags', 'created_at']);
 select columns_are('public', 'country_stats',
     array['country_code', 'fuel_type', 'lag_weeks', 'asymmetry', 'computed_at']);
 select columns_are('public', 'ingest_runs',
@@ -28,6 +31,7 @@ select col_is_pk('public', 'crude_prices', array['benchmark', 'date'], 'crude_pr
 select col_is_pk('public', 'fx_rates', array['pair', 'date'], 'fx_rates pk (pair, date)');
 select col_is_pk('public', 'fuel_prices', array['country_code', 'fuel_type', 'week_date'], 'fuel_prices pk (country_code, fuel_type, week_date)');
 select col_is_pk('public', 'news_items', array['id'], 'news_items pk (id)');
+select col_is_pk('public', 'market_events', array['id'], 'market_events pk (id)');
 select col_is_pk('public', 'country_stats', array['country_code', 'fuel_type'], 'country_stats pk (country_code, fuel_type)');
 select col_is_pk('public', 'ingest_runs', array['id'], 'ingest_runs pk (id)');
 
@@ -58,6 +62,17 @@ select col_type_is('public', 'news_items', 'direction', 'text', 'news_items.dire
 select col_type_is('public', 'news_items', 'tags', 'text[]', 'news_items.tags is text[]');
 select col_type_is('public', 'news_items', 'created_at', 'timestamp with time zone', 'news_items.created_at is timestamp with time zone');
 
+select col_type_is('public', 'market_events', 'id', 'bigint', 'market_events.id is bigint');
+select col_type_is('public', 'market_events', 'event_date', 'date', 'market_events.event_date is date');
+select col_type_is('public', 'market_events', 'title', 'text', 'market_events.title is text');
+select col_type_is('public', 'market_events', 'category', 'text', 'market_events.category is text');
+select col_type_is('public', 'market_events', 'direction', 'text', 'market_events.direction is text');
+select col_type_is('public', 'market_events', 'severity', 'smallint', 'market_events.severity is smallint');
+select col_type_is('public', 'market_events', 'description', 'text', 'market_events.description is text');
+select col_type_is('public', 'market_events', 'source_url', 'text', 'market_events.source_url is text');
+select col_type_is('public', 'market_events', 'tags', 'text[]', 'market_events.tags is text[]');
+select col_type_is('public', 'market_events', 'created_at', 'timestamp with time zone', 'market_events.created_at is timestamp with time zone');
+
 select col_type_is('public', 'country_stats', 'country_code', 'character(2)', 'country_stats.country_code is character(2)');
 select col_type_is('public', 'country_stats', 'fuel_type', 'text', 'country_stats.fuel_type is text');
 select col_type_is('public', 'country_stats', 'lag_weeks', 'integer', 'country_stats.lag_weeks is integer');
@@ -74,10 +89,16 @@ select col_type_is('public', 'ingest_runs', 'error', 'text', 'ingest_runs.error 
 
 -- secondary indexes and upsert key for news
 select col_is_unique('public', 'news_items', array['url'], 'news_items.url is unique');
+select col_is_unique('public', 'market_events', array['event_date', 'title'], 'market_events (event_date, title) is unique');
 select is(
     (select indexdef from pg_indexes where schemaname = 'public' and indexname = 'news_items_published_at_idx'),
     'CREATE INDEX news_items_published_at_idx ON public.news_items USING btree (published_at DESC)',
     'news_items indexed on published_at desc'
+);
+select is(
+    (select indexdef from pg_indexes where schemaname = 'public' and indexname = 'market_events_event_date_idx'),
+    'CREATE INDEX market_events_event_date_idx ON public.market_events USING btree (event_date DESC)',
+    'market_events indexed on event_date desc'
 );
 select is(
     (select indexdef from pg_indexes where schemaname = 'public' and indexname = 'ingest_runs_job_started_at_idx'),
